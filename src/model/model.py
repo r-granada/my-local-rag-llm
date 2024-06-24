@@ -12,40 +12,49 @@ class Model:
     def __init__(self):
         load_dotenv()
         self._access_token = os.getenv("ACCESS_TOKEN")
+        self._tokenizer = self._load_tokenizer()
+        self._model = self._load_model()
 
+    def _load_model(self):
+        assert self._tokenizer is not None, "Tokenizer must be initialized first"
 
-        print("Loading model")
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16
         )
-        self._model = AutoModelForCausalLM.from_pretrained(
+        model = AutoModelForCausalLM.from_pretrained(
             self._model_id,
             quantization_config=bnb_config,
             device_map={'': self._device}, 
             token=self._access_token,
         )
-        print("Loading tokenizer")
-        self._tokenizer = AutoTokenizer.from_pretrained(
+        model.config.pad_token_id = model.config.eos_token_id
+        model.generation_config.pad_token_id = self._tokenizer.pad_token_id
+
+        return model
+
+    def _load_tokenizer(self):
+        tokenizer = AutoTokenizer.from_pretrained(
             self._model_id,
             token=self._access_token,
         )
  
-        self._tokenizer.padding_side = "left"
+        tokenizer.padding_side = "left"
 
         # Define PAD Token = EOS Token
-        self._tokenizer.pad_token = self._tokenizer.eos_token
-        self._model.config.pad_token_id = self._model.config.eos_token_id
-        self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
+        tokenizer.pad_token = tokenizer.eos_token
+        return tokenizer
 
-        print("Finished setting up Model")
 
-    def answer(self, question: str) -> str:
+    def answer(self, question: str, context: str = None) -> str:
+        # if context:
+        #     question = f"Question: {question}.\nContext: {context}."
         messages = [
-                {"role": "system", "content": "You are a helpful and intelligent AI assistant who responds to user queries."},
+                {"role": "system", "content": "You are a helpful and intelligent AI assistant who responds to user queries. Use the information provided in the context if available."},
                 {"role": "user", "content": question},
+                {"role": "context", "content": context},
         ]
         prompt = self._tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = self._tokenizer(prompt, return_tensors="pt", padding=True).to(self._device)
