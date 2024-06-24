@@ -1,5 +1,9 @@
 from src.model.model import Model
 
 my_model = Model()
-#print(my_model.answer("How are you?"))
+
+while True:
+    input_question = input("Next Question: ")
+    response = my_model.answer(input_question)
+    print(f"Response: {response}")
 

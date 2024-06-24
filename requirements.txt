@@ -4,3 +4,4 @@ python-dotenv
 accelerate
 bitsandbytes
 peft
+pymilvus
