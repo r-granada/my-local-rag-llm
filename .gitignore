@@ -163,3 +163,7 @@ cython_debug/
 
 # dotenv variables
 .env
+
+# Milvus local db
+*.db
+*.db.lock
